@@ -42,14 +42,14 @@ class Client:
 
                         if not user: 
                             return await m.answer(
-                                "Добро пожаловать, подключите аккаунт.")
+                                "Добро пожаловать, подключите аккаунт.", reply_markup=await kb.main_menu())
                         
                         await m.answer("Аккаунт подключен!", reply_markup=await kb.del_connect_menu())
             except: pass
 
         if m.from_user.id in self.cfg.ADMINS:
             await self.udb.user.exists_user(uid=m.from_user.id, name=m.from_user.full_name, uname=m.from_user.username)
-            await m.answer(TextBot.welcome_message, reply_markup=await ikb.main_menu())
+            await m.answer(TextBot.welcome_message)
 
     
     async def bot_added_to_chat(self, m: Message):
