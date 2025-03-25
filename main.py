@@ -11,6 +11,8 @@ class BotRunner:
 
 
     async def multiplate_bots(self):
+        await self.bot_instance.db_manager.async_main()
+        
         tokens = await self.bot_instance.udb.accounts.get_tokens()
         tasks = []
 

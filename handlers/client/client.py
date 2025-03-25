@@ -42,7 +42,7 @@ class Client:
 
                         if not user: 
                             return await m.answer(
-                                "Добро пожаловать, подключите аккаунт.", reply_markup=await kb.main_menu())
+                                "Добро пожаловать, подключите аккаунт.")
                         
                         await m.answer("Аккаунт подключен!", reply_markup=await kb.del_connect_menu())
             except: pass

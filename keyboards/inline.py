@@ -10,15 +10,6 @@ from keyboards.callbackdata import *
 
 class Ikb:
     @staticmethod
-    async def main_menu():
-        menu = InlineKeyboardBuilder()
-
-        menu.button(text="Добавить аккаунт", callback_data="add_account")
-
-        return menu.adjust(2).as_markup()
-    
-
-    @staticmethod
     async def chat_menu():
         menu = InlineKeyboardBuilder()
 
