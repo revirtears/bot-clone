@@ -108,24 +108,20 @@ class RegisterClient:
                 print(f"🔹 {self.phone} вступает в группу {chat_url}...")
 
                 try:
-                    # Пробуем войти в чат по URL
                     await self.client(ImportChatInviteRequest(hash=chat_url.replace("https://t.me/+", '').strip()))
                     print(f"✅ {self.phone} успешно вошёл в группу {chat_url}")
 
-                    # После успешного входа запускаем асинхронный прослушиватель сообщений
                     current_task_client[self.client] = asyncio.create_task(
                         self.listen_for_messages(chat_id=spam_chat, manager=manager, admin_chat_id=admin_chat, bot=bot))
 
                     return True, None
                 except RPCError as e:
-                    # В случае ошибки при входе в чат
                     error_message = f"🚨 Ошибка при входе {self.phone} в группу {chat_url}: {e}"
                     print(error_message)
                     await self.client.disconnect()
                     return False, error_message
 
             except Exception as e:
-                # Логируем ошибку, если что-то пошло не так
                 return self.log_error(e)
             
 

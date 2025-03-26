@@ -15,37 +15,21 @@ class UserRequests(BaseRequests):
             async with self.db_session_maker() as session:
                 user = (await session.execute(select(User).where(User.uid == uid))).scalar()
 
-                if user: return True
+                if user: return bool(user.chat_admin_uid), bool(user.spam_chat_uid)
 
                 new_user = User(uid=uid, name=name, username=uname)
                 session.add(new_user)
                 await session.commit()
+
+                return False, False  
 
 
     async def select_user(self, uid: int):
         async with self.lock:
             async with self.db_session_maker() as session:
                 user = (await session.execute(select(User).where(User.uid == uid))).scalar()
-                return user
-            
-
-    async def add_chat(self, uid: int, chat_uid: int):
-        async with self.lock:
-            async with self.db_session_maker() as session:
-                user = (await session.execute(select(User).where(User.uid == uid))).scalar()
-
-                if not user.chat_admin_uid or not user.spam_chat_uid:
-                    values = {}
-                    if not user.chat_admin_uid:
-                        values["chat_admin_uid"] = chat_uid
-                    elif not user.spam_chat_uid:
-                        values["spam_chat_uid"] = chat_uid
+                return user  
                     
-                    await session.execute(update(User).where(User.uid == uid).values(**values))
-                    await session.commit()
-                    return True
-                return False
-            
             
     async def get_account_or_chat(self, chat_uid: int):
         async with self.lock:
@@ -142,10 +126,10 @@ class UserRequests(BaseRequests):
                 return chats
             
     
-    async def get_admin_chat(self, spam_chat: str):
+    async def get_admin_chat(self, chat_uid: str):
         async with self.lock:
             async with self.db_session_maker() as session:
-                return (await session.execute(select(User.chat_admin_uid).where(User.spam_chat_uid == spam_chat))).scalar()
+                return (await session.execute(select(Chats.admin_chat).where(Chats.chat_uid == chat_uid))).scalar()
             
     
     async def delete_licence(self, uid: int):
@@ -158,5 +142,46 @@ class UserRequests(BaseRequests):
                 await session.execute(delete(License).where(License.uid == uid))
                 await session.commit()
                 return True
+            
+    
+    async def connect_chats(self, admin_chat: str):
+        async with self.lock:
+            async with self.db_session_maker() as session:
+                chat_status = (await session.execute(select(Chats.connect).where(Chats.admin_chat == admin_chat))).scalars().first()
+                new_status = not chat_status
+
+                await session.execute(update(Chats).values(connect=new_status))
+                await session.commit()
+                return new_status
+            
+    
+    async def get_connect(self, admin_chat: str):
+        async with self.lock:
+            async with self.db_session_maker() as session:
+                chat_status = (await session.execute(select(Chats.connect).where(Chats.admin_chat == admin_chat))).scalars().first()
+                return chat_status
+            
+    
+    async def add_chat(self, uid: int, chat_uid: str):
+        async with self.lock:
+            async with self.db_session_maker() as session:
+                user = (await session.execute(select(User).where(User.uid == uid))).scalar()
+
+                if not user.chat_admin_uid:
+                    user.spam_chat_uid = chat_uid
+                    await session.commit() 
+                    return True, False
+
+                if not user.spam_chat_uid:
+                    user.spam_chat_uid = chat_uid
+                    await session.commit() 
+                    return True, True 
+            
+    
+    async def get_ids_license(self):
+        async with self.lock:
+            async with self.db_session_maker() as session:
+                return (await session.execute(select(License.uid))).scalars().all()
+                
 
             

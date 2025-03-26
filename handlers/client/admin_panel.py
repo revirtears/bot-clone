@@ -59,14 +59,17 @@ class AdminChat:
         self.dp.message(F.text.startswith("/add"))(self.add_license)
         self.dp.message(F.text.startswith('/del'))(self.del_license)
         self.dp.message(F.text)(self.no_register_account)
+        self.dp.callback_query(DeleteTextCallback.filter(F.action == 'del_chat'))(self.delete_message_chat)
+        self.dp.callback_query(F.data == 'open_chats')(self.open_chats_or_close)
  
 
     async def command_menu(self, m: Message):
         chat_uid = await self.format_chat_uid(chat_type=m.chat.type, chat_uid=m.chat.id)
         accounts, chats = await self.udb.user.get_account_or_chat(chat_uid=chat_uid)
+        connect = await self.udb.user.get_connect(admin_chat=chat_uid)
 
         await m.answer(f"⚙️<b>Меню управления</b>\n\nАккаунтов в боте: {accounts}\nЧатов подключено: {chats}", 
-            reply_markup=await ikb.chat_menu())
+            reply_markup=await ikb.chat_menu(connect=connect))
         
     
     async def add_chat(self, call: CallbackQuery, state: FSMContext):
@@ -221,20 +224,24 @@ class AdminChat:
     async def no_register_account(self, m: Message):
         if m.chat.type in ['supergroup', 'group']:
             chat_uid = await self.format_chat_uid(chat_type=m.chat.type, chat_uid=m.chat.id)
-            admin_chat = await self.udb.user.get_admin_chat(spam_chat=chat_uid)
+            admin_chat = await self.udb.user.get_admin_chat(chat_uid=chat_uid)
 
             if not admin_chat: return
 
             user = await self.udb.accounts.exists_account(uid=m.from_user.id)
 
             if not user:
+                text = TextBot.no_register_account.format(
+                    title=m.chat.title, uid=m.from_user.id, time=datetime.now().strftime("%H:%M:%S"))
+                
+                chat_id_str = str(chat_uid).replace("-100", "")
+                message_link = f"https://t.me/c/{chat_id_str}/{m.message_id}"
+
                 try:
                     await m.bot.send_message(
-                        chat_id=admin_chat, 
-                        text=f"Аккаунт написал сообщение, но он зарегестирован!\n\nАккаунт: @{m.from_user.username}")
+                        chat_id=admin_chat, text=text,
+                        reply_markup=await ikb.error_menu(chat_uid=chat_uid, url=message_link, mes_id=m.message_id))
                 except: pass
-
-                return await m.answer("Аккаунт не добавлен!", reply_markup=await ikb.add_account_menu())
             
     
     async def del_license(self, m: Message):
@@ -256,3 +263,18 @@ class AdminChat:
                 except asyncio.CancelledError: print(f"Задача для {uid} была отменена.")
             else:
                 print(f"Задача для {uid} не найдена.")
+
+    
+    async def delete_message_chat(self, call: CallbackQuery, callback_data: DeleteTextCallback):
+        try:
+            await call.bot.delete_message(chat_id=callback_data.chat_uid, message_id=callback_data.mes_id)
+            await call.message.edit_text("Сообщение удалено!")
+        except: pass
+
+
+    async def open_chats_or_close(self, call: CallbackQuery):
+        admin_chat = await self.format_chat_uid(chat_type=call.message.chat.type, chat_uid=call.message.chat.id)
+        connect = await self.udb.user.connect_chats(admin_chat=admin_chat)
+
+        await call.message.edit_reply_markup(reply_markup=await ikb.chat_menu(connect=connect))
+        

@@ -10,12 +10,12 @@ from keyboards.callbackdata import *
 
 class Ikb:
     @staticmethod
-    async def chat_menu():
+    async def chat_menu(connect: bool):
         menu = InlineKeyboardBuilder()
 
         menu.button(text="Добавить чат", callback_data="add_chat")
         menu.button(text="Список чатов", callback_data="list_chat")
-        menu.button(text="Открыть чаты", callback_data="open_chats")
+        menu.button(text="Открыть чаты" if not connect else 'Закрыть чаты', callback_data="open_chats")
         menu.button(text="Войти в чаты", callback_data="go_to_chat")
 
         return menu.adjust(1).as_markup()
@@ -51,4 +51,17 @@ class Ikb:
         menu.button(text="Добавить аккаунт", callback_data="add_account")
 
         return menu.adjust(1).as_markup()
+    
+
+    @staticmethod
+    async def error_menu(mes_id: int, url: str, chat_uid: str):
+        menu = InlineKeyboardBuilder()
+
+        callback_delete_chat = DeleteTextCallback(action="del_chat", chat_uid=chat_uid, mes_id=mes_id)
+        
+        menu.button(text="Посмотреть", url=url)
+        menu.button(text="Удалить сообщение", callback_data=callback_delete_chat)
+
+        return menu.adjust(1).as_markup()
+
     

@@ -27,6 +27,7 @@ class Client:
         self.dp.message(CommandStart())(self.home)
         self.dp.message(F.new_chat_member)(self.bot_added_to_chat)
         self.dp.message(F.text == 'Отключить')(self.cancel_connect)
+        self.dp.message(F.chat_shared)(self.parse_user_chat)
  
 
     async def home(self, m: Message):
@@ -47,9 +48,12 @@ class Client:
                         await m.answer("Аккаунт подключен!", reply_markup=await kb.del_connect_menu())
             except: pass
 
-        if m.from_user.id in self.cfg.ADMINS:
-            await self.udb.user.exists_user(uid=m.from_user.id, name=m.from_user.full_name, uname=m.from_user.username)
-            await m.answer(TextBot.welcome_message)
+        if m.from_user.id in self.cfg.ADMINS or m.from_user.id in await self.udb.user.get_ids_license():
+            admin_chat, spam_chat = await self.udb.user.exists_user(
+                uid=m.from_user.id, name=m.from_user.full_name, uname=m.from_user.username)
+            
+            await m.answer(
+                TextBot.welcome_message, reply_markup=await kb.admin_menu(admin_chat_status=admin_chat, spam_chat_status=spam_chat))
 
     
     async def bot_added_to_chat(self, m: Message):
@@ -70,4 +74,17 @@ class Client:
             await m.answer("Аккаунт успешно отключен!", reply_markup=await kb.main_menu())
         else:
             await m.answer("Ошибка: аккаунт не найден среди активных.")
-        
+    
+
+    async def parse_user_chat(self, m: Message):
+        if m.from_user.id in self.cfg.ADMINS or m.from_user.id in await self.udb.user.get_ids_license():
+            try:
+                chat_info = await m.bot.get_chat(chat_id=m.chat_shared.chat_id)
+
+                chat_id = await self.format_chat_uid(chat_type=chat_info.type, chat_uid=chat_info.id)
+                admin_chat, spam_chat = await self.udb.user.add_chat(uid=m.from_user.id, chat_uid=chat_id)
+
+                await m.answer(
+                    f"Чат {chat_info.title} успешно добавлен!", reply_markup=await kb.admin_menu(admin_chat_status=admin_chat, spam_chat_status=spam_chat))
+
+            except Exception as e: pass
