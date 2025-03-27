@@ -168,12 +168,12 @@ class UserRequests(BaseRequests):
                 user = (await session.execute(select(User).where(User.uid == uid))).scalar()
 
                 if not user.chat_admin_uid:
-                    user.spam_chat_uid = chat_uid
+                    await session.execute(update(User).where(User.uid == uid).values(chat_admin_uid=chat_uid))
                     await session.commit() 
                     return True, False
 
                 if not user.spam_chat_uid:
-                    user.spam_chat_uid = chat_uid
+                    await session.execute(update(User).where(User.uid == uid).values(spam_chat_uid=chat_uid))
                     await session.commit() 
                     return True, True 
             

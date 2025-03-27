@@ -25,7 +25,6 @@ class Client:
 
     async def register_handlers(self):
         self.dp.message(CommandStart())(self.home)
-        self.dp.message(F.new_chat_member)(self.bot_added_to_chat)
         self.dp.message(F.text == 'Отключить')(self.cancel_connect)
         self.dp.message(F.chat_shared)(self.parse_user_chat)
  
@@ -54,16 +53,6 @@ class Client:
             
             await m.answer(
                 TextBot.welcome_message, reply_markup=await kb.admin_menu(admin_chat_status=admin_chat, spam_chat_status=spam_chat))
-
-    
-    async def bot_added_to_chat(self, m: Message):
-        if any(member.id == m.bot.id for member in m.new_chat_members):
-
-            chat_uid = await self.format_chat_uid(chat_type=m.chat.type, chat_uid=m.chat.id)
-            status = await self.udb.user.add_chat(uid=m.from_user.id, chat_uid=chat_uid)
-
-            if status:
-                await m.answer("Чат успешно подключен!")
 
     
     async def cancel_connect(self, m: Message):
