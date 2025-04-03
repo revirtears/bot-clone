@@ -1,13 +1,9 @@
-import os
-import asyncio
-
 from aiogram import F
 from aiogram.types import Message
 from aiogram.filters import CommandStart
 
 from ..text import TextBot
 from signature import SettingsBot
-from keyboards.inline import Ikb as ikb
 from keyboards.reply import ReplyKb as kb
 
 from keyboards.callbackdata import *
@@ -26,11 +22,17 @@ class Client:
     async def register_handlers(self):
         self.dp.message(CommandStart())(self.home)
         self.dp.message(F.text == 'Отключить')(self.cancel_connect)
-        self.dp.message(F.chat_shared)(self.parse_user_chat)
+        self.dp.message(F.text.startswith("/admin"))(self.add_admin_chat)
+        self.dp.message(F.text.startswith("/spam"))(self.add_spam_chat)
  
 
     async def home(self, m: Message):
+        if m.from_user.id in self.cfg.ADMINS or m.from_user.id in await self.udb.user.get_ids_license():
+            await self.udb.user.exists_user(uid=m.from_user.id, name=m.from_user.full_name, uname=m.from_user.username)
+            return await m.answer(TextBot.welcome_message)
+
         chats = await self.udb.user.get_chats_spams()
+        print("Чаты:", chats)
 
         if chats:
             try:
@@ -45,14 +47,7 @@ class Client:
                                 "Добро пожаловать, подключите аккаунт.", reply_markup=await kb.main_menu())
                         
                         await m.answer("Аккаунт подключен!", reply_markup=await kb.del_connect_menu())
-            except: pass
-
-        if m.from_user.id in self.cfg.ADMINS or m.from_user.id in await self.udb.user.get_ids_license():
-            admin_chat, spam_chat = await self.udb.user.exists_user(
-                uid=m.from_user.id, name=m.from_user.full_name, uname=m.from_user.username)
-            
-            await m.answer(
-                TextBot.welcome_message, reply_markup=await kb.admin_menu(admin_chat_status=admin_chat, spam_chat_status=spam_chat))
+            except Exception as e: print("Аккаунт пишет в боте старт:", e) 
 
     
     async def cancel_connect(self, m: Message):
@@ -63,17 +58,43 @@ class Client:
             await m.answer("Аккаунт успешно отключен!", reply_markup=await kb.main_menu())
         else:
             await m.answer("Ошибка: аккаунт не найден среди активных.")
+
+
+    async def add_admin_chat(self, m: Message):
+        chat_uid = m.text.replace('/admin', '').split()[0]
+
+        if chat_uid[0] != '-': return await m.answer("Неверный формат ID!")
+
+        try:
+            chat_info = await m.bot.get_chat(chat_id=chat_uid)
+            bot_member = await m.bot.get_chat_member(chat_uid, m.bot.id)
+            
+            if bot_member.status not in ["administrator", "creator"]:
+                return await m.answer(f"Бот не является администратором в чате {chat_info.title}!\n\nДобавьте бота в администраторы и попробуйте снова.")
+
+            resp = await self.udb.user.add_admin_chat(uid=m.from_user.id, chat_uid=chat_uid)
+            if not resp: return await m.answer("Чат уже добавлен!")
+
+            await m.answer(f"<b>Чат админ [<code>{chat_info.title}</code>] успешно добавлен!</b>")
+
+        except Exception as e: print(f"Ошибка: {e}")
+
     
+    async def add_spam_chat(self, m: Message):
+        chat_uid = m.text.replace('/spam', '').split()[0]
 
-    async def parse_user_chat(self, m: Message):
-        if m.from_user.id in self.cfg.ADMINS or m.from_user.id in await self.udb.user.get_ids_license():
-            try:
-                chat_info = await m.bot.get_chat(chat_id=m.chat_shared.chat_id)
+        if chat_uid[0] != '-': return await m.answer("Неверный формат ID!")
 
-                chat_id = await self.format_chat_uid(chat_type=chat_info.type, chat_uid=chat_info.id)
-                admin_chat, spam_chat = await self.udb.user.add_chat(uid=m.from_user.id, chat_uid=chat_id)
+        try:
+            chat_info = await m.bot.get_chat(chat_id=chat_uid)
+            bot_member = await m.bot.get_chat_member(chat_uid, m.bot.id)
+            
+            if bot_member.status not in ["administrator", "creator"]:
+                return await m.answer(f"Бот не является администратором в чате {chat_info.title}!\n\nДобавьте бота в администраторы и попробуйте снова.")
 
-                await m.answer(
-                    f"Чат {chat_info.title} успешно добавлен!", reply_markup=await kb.admin_menu(admin_chat_status=admin_chat, spam_chat_status=spam_chat))
+            resp = await self.udb.user.add_spam_chat(uid=m.from_user.id, chat_uid=chat_uid)
+            if not resp: return await m.answer("Чат уже добавлен!")
+            
+            await m.answer(f"<b>Чат спам [<code>{chat_info.title}</code>] успешно добавлен!</b>")
 
-            except Exception as e: pass
+        except Exception as e: print(f"Ошибка: {e}")

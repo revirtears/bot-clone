@@ -68,6 +68,8 @@ class AdminChat:
         accounts, chats = await self.udb.user.get_account_or_chat(chat_uid=chat_uid)
         connect = await self.udb.user.get_connect(admin_chat=chat_uid)
 
+        if not accounts or chats: return await m.answer("Подключите этот чат!")
+
         await m.answer(f"⚙️<b>Меню управления</b>\n\nАккаунтов в боте: {accounts}\nЧатов подключено: {chats}", 
             reply_markup=await ikb.chat_menu(connect=connect))
         

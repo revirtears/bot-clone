@@ -63,5 +63,4 @@ class Ikb:
         menu.button(text="Удалить сообщение", callback_data=callback_delete_chat)
 
         return menu.adjust(1).as_markup()
-
     

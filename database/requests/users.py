@@ -15,13 +15,12 @@ class UserRequests(BaseRequests):
             async with self.db_session_maker() as session:
                 user = (await session.execute(select(User).where(User.uid == uid))).scalar()
 
-                if user: return bool(user.chat_admin_uid), bool(user.spam_chat_uid)
-
-                new_user = User(uid=uid, name=name, username=uname)
-                session.add(new_user)
-                await session.commit()
-
-                return False, False  
+                if not user:
+                    new_user = User(uid=uid, name=name, username=uname)
+                    session.add(new_user)
+                    await session.commit()
+                    
+                return bool(user)
 
 
     async def select_user(self, uid: int):
@@ -162,20 +161,28 @@ class UserRequests(BaseRequests):
                 return chat_status
             
     
-    async def add_chat(self, uid: int, chat_uid: str):
+    async def add_admin_chat(self, uid: int, chat_uid: str):
         async with self.lock:
             async with self.db_session_maker() as session:
                 user = (await session.execute(select(User).where(User.uid == uid))).scalar()
 
                 if not user.chat_admin_uid:
                     await session.execute(update(User).where(User.uid == uid).values(chat_admin_uid=chat_uid))
-                    await session.commit() 
-                    return True, False
+                    await session.commit()
+                    return True
+                return False
+    
+
+    async def add_spam_chat(self, uid: int, chat_uid: str):
+        async with self.lock:
+            async with self.db_session_maker() as session:
+                user = (await session.execute(select(User).where(User.uid == uid))).scalar()
 
                 if not user.spam_chat_uid:
                     await session.execute(update(User).where(User.uid == uid).values(spam_chat_uid=chat_uid))
-                    await session.commit() 
-                    return True, True 
+                    await session.commit()
+                    return True
+                return False
             
     
     async def get_ids_license(self):
